@@ -21,7 +21,8 @@ const int b_h = (SCREEN_HEIGHT/M);
 
 bool GAME_OVER = false;
 int maps[M][N] = {0};
-SDL_Rect block[4], next_block;
+SDL_Rect block[4];
+SDL_Rect nextblock[4];
 int shapes[7][4] =
 {
     1,3,5,7, // I
@@ -55,8 +56,60 @@ struct Point{
     int x, y;
     };
 
+class Queue{
+private:
+    int queue_size;
+    int first = 0;
+    int last  = 0;
+    int* buffer;
+public:
+    Queue(int n){
+        queue_size = n;
+        buffer = new int[n];
+    }
 
+    void enqueue(int a){
+        if(last < queue_size) buffer[last++] = a;
+        else if(manageQ()) buffer[last++] = a;
+        else{
+            cout << "queue is full" << endl;
+        }
+    }
 
+    int dequeue(){
+        if(first < last) return buffer[first++];
+        else{
+            cout << "Queue is empty" << endl;
+            return -1;
+        }
+
+    }
+
+    int top(){
+        return buffer[last-1];
+    }
+
+    bool manageQ(){
+        if(first == 0){
+            return false;
+        }else{
+            for(int i =0; i < last - first; i++){
+                buffer[i] = buffer[i+ first];
+            }
+            last = last - first;
+            first = 0;
+            return true;
+        }
+        }
+    };
+
+//void createblock(Queue &shape, Queue &colors){
+//    int n, color;
+//    n=rand()%7;
+//    color = rand()% 7 + 1;
+//    shape.enqueue(n);
+//    colors.enqueue(color);
+//}
 
 
 bool valid(){
@@ -73,7 +126,7 @@ bool valid(){
 
 }
 
-int initblock(SDL_Renderer* renderer,SDL_Texture *image, SDL_Rect &crop, const int& iw, const int& ih){
+void initblock(SDL_Renderer* renderer,SDL_Texture *image, SDL_Rect &crop, const int& iw, const int& ih, const int& n, const int& color){
 
     for(int i =0; i < 4; i++){
         block[i].x = (shapes[n][i]/2)*b_w;
@@ -90,22 +143,21 @@ int initblock(SDL_Renderer* renderer,SDL_Texture *image, SDL_Rect &crop, const i
         SDL_RenderClear(renderer);
         GAME_OVER = true;
     }
-    return color;
 
 }
 
 //next block
-void nextblock(SDL_Renderer* renderer,SDL_Texture *image, SDL_Rect &crop, const int& iw, const int& ih){
+void next_block(SDL_Renderer* renderer,SDL_Texture *image, SDL_Rect &crop, const int& iw, const int& ih,const int& n, const int& color){
     for(int i =0; i < 4; i++){
-        block[i].x = (shapes[n][i]/2)*b_w;
-        block[i].y = (shapes[n][i]%2)*b_h;
-        block[i].w = b_w;
-        block[i].h = b_h;
+        nextblock[i].x = (shapes[n][i]/2)*(b_w+10) + 625;
+        nextblock[i].y = (shapes[n][i]%2)*(b_h+10) + 570;
+        nextblock[i].w = b_w+10;
+        nextblock[i].h = b_h+10;
         crop.x = (color-1)*18;
         crop.y = 0;
         crop.w = iw/8;
         crop.h = ih;
-        SDL_RenderCopy(renderer, image, &crop, &block[i]);
+        SDL_RenderCopy(renderer, image, &crop, &nextblock[i]);
     }
 
 
@@ -141,32 +193,52 @@ int main(int argc, char* argv[]){
     SDL_Renderer* new_render;
     Point prev[4];
     initSDL(window, renderer);
-    SDL_Texture *image = loadTexture("tiles.png", renderer);
-    SDL_Texture *back_ground = loadTexture("new_113.png", renderer);
+    SDL_Texture *image = loadTexture("images/tiles.png", renderer);
+    SDL_Texture *back_ground = loadTexture("images/new_113.png", renderer);
     SDL_Rect crop;
+
+
+    // init variable
+    Queue shape(2), colors(2);
     int iw, ih;
     SDL_QueryTexture(image, NULL, NULL, &iw, &ih);
     srand(time(NULL));
-    int color;
-//    renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
-//    color = initblock(renderer, image, crop, iw, ih);
-//    SDL_RenderPresent(renderer);
-    SDL_Rect prev_block, crop_a;
+
+
+    //init variable to handle nextblock
+    int color, n;
+    for(int i = 0; i < 2; i++){
+        n=rand()%7;
+        color = rand()% 7 + 1;
+        shape.enqueue(n);
+        colors.enqueue(color);
+    }
+
+
+    // start game
+    renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+    initblock(renderer, image, crop, iw, ih, shape.dequeue(), colors.dequeue());
+    next_block(renderer, image, crop, iw, ih, shape.top(), colors.top());
+    SDL_RenderPresent(renderer);
+
     //define block width and height
+    SDL_Rect prev_block, crop_a;
     prev_block.w = b_w;
     prev_block.h = b_h;
     crop_a.w = iw/8;
     crop_a.h = ih;
     crop_a.y = 0;
+
+    //init gameplay handle
     bool rotates = false;
     bool running = true;
     SDL_Event e;
     float delay = 0.03;
-
     float time_, time_elapse;
-
-
     int dx=0, dy=1;
+
+
+
     while(running){
         time_ = SDL_GetTicks();
 
@@ -209,6 +281,7 @@ int main(int argc, char* argv[]){
         if(dx != 0){
             SDL_RenderClear(renderer);
             renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+            next_block(renderer, image, crop, iw, ih, shape.top(), colors.top());
             for(int i = 0; i < 4; i++){
                 block[i].x += dx*b_w;
                 SDL_RenderCopy(renderer, image, &crop, &block[i]);
@@ -218,6 +291,7 @@ int main(int argc, char* argv[]){
 
                 SDL_RenderClear(renderer);
                 renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+                next_block(renderer, image, crop, iw, ih, shape.top(), colors.top());
                 for(int i =0; i < 4; i++){
                     block[i].x = prev[i].x;
                     block[i].y = prev[i].y;
@@ -234,6 +308,7 @@ int main(int argc, char* argv[]){
             rotates = false;
             SDL_RenderClear(renderer);
             renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+            next_block(renderer, image, crop, iw, ih, shape.top(), colors.top());
             Point center;
             center.x = block[1].x;
             center.y = block[1].y;
@@ -251,6 +326,7 @@ int main(int argc, char* argv[]){
             if(!valid()){
                 SDL_RenderClear(renderer);
                 renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+                next_block(renderer, image, crop, iw, ih, shape.top(), colors.top());
                 for(int i =0; i < 4; i++){
                     block[i].x = prev[i].x;
                     block[i].y = prev[i].y;
@@ -265,6 +341,7 @@ int main(int argc, char* argv[]){
 
             SDL_RenderClear(renderer);
             renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+            next_block(renderer, image, crop, iw, ih, shape.top(), colors.top());
             for(int i = 0; i < 4; i++){
                 block[i].y += dy*b_h;
                 SDL_RenderCopy(renderer, image, &crop, &block[i]);
@@ -279,7 +356,13 @@ int main(int argc, char* argv[]){
 
                 SDL_RenderClear(renderer);
                 renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
-                color = initblock(renderer, image, crop, iw, ih);
+                next_block(renderer, image, crop, iw, ih, shape.top(), colors.top());
+                n=rand()%7;
+                color = rand()% 7 + 1;
+                shape.enqueue(n);
+                colors.enqueue(color);
+                initblock(renderer, image, crop, iw, ih, shape.dequeue(), colors.dequeue());
+                next_block(renderer, image, crop, iw, ih, shape.top(), colors.top());
 
             }
             delay = 0.03, time_elapse = 0;
