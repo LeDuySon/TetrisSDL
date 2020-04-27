@@ -1,0 +1,456 @@
+#include <iostream>
+#include <SDL.h>
+//#include <SDL2/SDL.h>
+#include <SDL_image.h>
+#include <cstdlib>
+#include <ctime>
+#include <string>
+
+using namespace std;
+const int W_WIDTH = 868;
+const int W_HEIGHT = 696;
+const int SCREEN_WIDTH = 522;
+const int SCREEN_HEIGHT = 696;
+
+const string WINDOW_TITLE = "a";
+const int M = 24;
+const int N = 18;
+//size of block
+const int b_w = (SCREEN_WIDTH/N);
+const int b_h = (SCREEN_HEIGHT/M);
+
+bool GAME_OVER = false;
+int maps[M][N] = {0};
+SDL_Rect block[4], next_block;
+int shapes[7][4] =
+{
+    1,3,5,7, // I
+    2,4,5,7, // Z
+    3,5,4,6, // S
+    3,5,4,7, // T
+    2,3,5,7, // L
+    3,5,7,6, // J
+    2,3,4,5, // O
+};
+//**************************************************************
+void logSDLError(std::ostream& os,
+                 const std::string &msg, bool fatal);
+
+void initSDL(SDL_Window* &window, SDL_Renderer* &renderer) ;
+
+void quitSDL(SDL_Window* window, SDL_Renderer* renderer);
+
+void waitUntilKeyPressed();
+
+SDL_Texture* loadTexture(const std::string &file, SDL_Renderer *ren);
+
+
+void renderTexture(SDL_Texture *tex, SDL_Renderer *ren, int x, int y);
+
+
+void renderTexture(SDL_Texture *tex, SDL_Renderer *ren, int x, int y, int w, int h);
+//*******************************************
+
+struct Point{
+    int x, y;
+    };
+
+
+
+
+
+bool valid(){
+
+    for(int i = 0; i < 4; i++){
+
+        if(block[i].x  > (SCREEN_WIDTH - b_w) || block[i].y+b_h >= SCREEN_HEIGHT || block[i].x < 0 || block[i].y < 0){
+            return false;
+        }else if(maps[(block[i].y+b_h)/b_h][(block[i].x)/b_w]){
+            return false;
+            }
+    }
+    return true;
+
+}
+
+int initblock(SDL_Renderer* renderer,SDL_Texture *image, SDL_Rect &crop, const int& iw, const int& ih){
+
+    for(int i =0; i < 4; i++){
+        block[i].x = (shapes[n][i]/2)*b_w;
+        block[i].y = (shapes[n][i]%2)*b_h;
+        block[i].w = b_w;
+        block[i].h = b_h;
+        crop.x = (color-1)*18;
+        crop.y = 0;
+        crop.w = iw/8;
+        crop.h = ih;
+        SDL_RenderCopy(renderer, image, &crop, &block[i]);
+    }
+    if(!valid()){
+        SDL_RenderClear(renderer);
+        GAME_OVER = true;
+    }
+    return color;
+
+}
+
+//next block
+void nextblock(SDL_Renderer* renderer,SDL_Texture *image, SDL_Rect &crop, const int& iw, const int& ih){
+    for(int i =0; i < 4; i++){
+        block[i].x = (shapes[n][i]/2)*b_w;
+        block[i].y = (shapes[n][i]%2)*b_h;
+        block[i].w = b_w;
+        block[i].h = b_h;
+        crop.x = (color-1)*18;
+        crop.y = 0;
+        crop.w = iw/8;
+        crop.h = ih;
+        SDL_RenderCopy(renderer, image, &crop, &block[i]);
+    }
+
+
+}
+void checkgame_over(){
+        for(int j = 0; j < N; j++){
+            if(maps[0][j]) GAME_OVER = true;
+        }
+}
+
+void draw_shadow(SDL_Renderer* renderer){
+    int shadow[4];
+    for(int b = 0; b < 4; b++){
+        shadow[b] = block[b].y;
+    }
+
+    while(valid()){
+        for(int i = 0; i < 4; i++){
+            block[i].y += b_h;
+        }
+    }
+    for(int i = 0; i < 4; i++){
+        SDL_SetRenderDrawColor(renderer, 255, 0, 255, 0); // white
+        SDL_RenderDrawRect(renderer, &block[i]);
+        block[i].y = shadow[i];
+    }
+
+
+}
+int main(int argc, char* argv[]){
+    SDL_Window* window;
+    SDL_Renderer* renderer;
+    SDL_Renderer* new_render;
+    Point prev[4];
+    initSDL(window, renderer);
+    SDL_Texture *image = loadTexture("tiles.png", renderer);
+    SDL_Texture *back_ground = loadTexture("new_113.png", renderer);
+    SDL_Rect crop;
+    int iw, ih;
+    SDL_QueryTexture(image, NULL, NULL, &iw, &ih);
+    srand(time(NULL));
+    int color;
+//    renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+//    color = initblock(renderer, image, crop, iw, ih);
+//    SDL_RenderPresent(renderer);
+    SDL_Rect prev_block, crop_a;
+    //define block width and height
+    prev_block.w = b_w;
+    prev_block.h = b_h;
+    crop_a.w = iw/8;
+    crop_a.h = ih;
+    crop_a.y = 0;
+    bool rotates = false;
+    bool running = true;
+    SDL_Event e;
+    float delay = 0.03;
+
+    float time_, time_elapse;
+
+
+    int dx=0, dy=1;
+    while(running){
+        time_ = SDL_GetTicks();
+
+
+        while( SDL_PollEvent(&e) ){
+            switch( e.type ){
+                /* Look for a keypress */
+                case SDL_KEYDOWN:
+                    /* Check the SDLKey values and move change the coords */
+                    switch( e.key.keysym.sym ){
+                        case SDLK_LEFT:
+                            dx -= 1;
+                            break;
+                        case SDLK_RIGHT:
+                            dx += 1;
+                            break;
+                        case SDLK_UP:
+                            rotates = true;
+                            break;
+                        case SDLK_DOWN:
+                            delay = 0;
+                            break;
+                        default:
+                            break;
+                    }
+                }
+        }
+
+
+        //previous position
+        for(int p = 0; p < 4; p++){
+            prev[p].x = block[p].x;
+            prev[p].y = block[p].y;
+
+        }
+
+
+
+        // move horizontal direction <-->
+        if(dx != 0){
+            SDL_RenderClear(renderer);
+            renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+            for(int i = 0; i < 4; i++){
+                block[i].x += dx*b_w;
+                SDL_RenderCopy(renderer, image, &crop, &block[i]);
+
+            }
+            if(!valid()){
+
+                SDL_RenderClear(renderer);
+                renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+                for(int i =0; i < 4; i++){
+                    block[i].x = prev[i].x;
+                    block[i].y = prev[i].y;
+                    SDL_RenderCopy(renderer, image, &crop, &block[i]);
+                }
+            }
+            dx = 0;
+        }
+
+
+        //init center to rotate
+        // default center block[1]
+        if(rotates){
+            rotates = false;
+            SDL_RenderClear(renderer);
+            renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+            Point center;
+            center.x = block[1].x;
+            center.y = block[1].y;
+            for(int i = 0; i < 4; i++){
+                int y = block[i].x - center.x;
+                int x = block[i].y - center.y;
+                //rotate 90 degree matrix
+                //[[0,-1],
+                // [1,0]]
+                block[i].x = -x + center.x;
+                block[i].y = y + center.y;
+                SDL_RenderCopy(renderer, image, &crop, &block[i]);
+
+            }
+            if(!valid()){
+                SDL_RenderClear(renderer);
+                renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+                for(int i =0; i < 4; i++){
+                    block[i].x = prev[i].x;
+                    block[i].y = prev[i].y;
+                    SDL_RenderCopy(renderer, image, &crop, &block[i]);
+                }
+            }
+        }
+        time_elapse += (SDL_GetTicks() - time_)/100;
+
+        //store what we already played
+        if(time_elapse > delay){
+
+            SDL_RenderClear(renderer);
+            renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+            for(int i = 0; i < 4; i++){
+                block[i].y += dy*b_h;
+                SDL_RenderCopy(renderer, image, &crop, &block[i]);
+
+            }
+
+            if(!valid()){
+                cout << "color is: " << color;
+                for(int i = 0; i < 4; i++){
+                    maps[block[i].y/b_h][block[i].x/b_w] = color;
+                }
+
+                SDL_RenderClear(renderer);
+                renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+                color = initblock(renderer, image, crop, iw, ih);
+
+            }
+            delay = 0.03, time_elapse = 0;
+
+        }
+        //check line
+        int cut = M-1;
+        for(int i = M-1; i > 0; i--){
+            int same = 0;
+            for(int j = 0; j < N; j++){
+                if(maps[i][j]) same+= 1;
+                maps[cut][j] = maps[i][j];
+            }
+            if(same < N) cut -= 1;
+        }
+
+
+        for(int i = M-1; i >= 0; i--){
+            for(int j = 0; j < N; j++){
+                if(maps[i][j] != 0){
+                    crop_a.x = (maps[i][j]-1)*18;
+                    prev_block.x = j*b_w;
+                    prev_block.y = i*b_h;
+                    SDL_RenderCopy(renderer, image, &crop_a, &prev_block);
+                }
+            }
+
+
+        }
+
+        //draw the shadowbox
+        draw_shadow(renderer);
+
+
+//        checkgame_over();
+        if(GAME_OVER){
+            cout << "Game over!!!";
+            break;
+        }
+
+        SDL_RenderPresent(renderer);
+
+
+    }
+    waitUntilKeyPressed();
+    quitSDL(window, renderer);
+    return 0;
+
+
+}
+
+
+
+void logSDLError(std::ostream& os,
+                 const std::string &msg, bool fatal)
+{
+    os << msg << " Error: " << SDL_GetError() << std::endl;
+    if (fatal) {
+        SDL_Quit();
+        exit(1);
+    }
+}
+
+void initSDL(SDL_Window* &window, SDL_Renderer* &renderer)
+{
+    if (SDL_Init(SDL_INIT_EVERYTHING) != 0)
+        logSDLError(std::cout, "SDL_Init", true);
+
+    window = SDL_CreateWindow(WINDOW_TITLE.c_str(), SDL_WINDOWPOS_CENTERED,
+       SDL_WINDOWPOS_CENTERED, W_WIDTH, W_HEIGHT, SDL_WINDOW_SHOWN);
+    //window = SDL_CreateWindow(WINDOW_TITLE.c_str(), SDL_WINDOWPOS_CENTERED,
+    //   SDL_WINDOWPOS_CENTERED, W_WIDTH, W_HEIGHT, SDL_WINDOW_FULLSCREEN_DESKTOP);
+    if (window == nullptr) logSDLError(std::cout, "CreateWindow", true);
+
+
+    //Khi thông thường chạy với môi trường bình thường ở nhà
+    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED |
+                                              SDL_RENDERER_PRESENTVSYNC);
+    //Khi chạy ở máy thực hành WinXP ở trường (máy ảo)
+    //renderer = SDL_CreateSoftwareRenderer(SDL_GetWindowSurface(window));
+    if (renderer == nullptr) logSDLError(std::cout, "CreateRenderer", true);
+
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+    SDL_RenderSetLogicalSize(renderer, W_WIDTH, W_HEIGHT);
+}
+
+void quitSDL(SDL_Window* window, SDL_Renderer* renderer)
+{
+	SDL_DestroyRenderer(renderer);
+	SDL_DestroyWindow(window);
+	SDL_Quit();
+}
+
+void waitUntilKeyPressed()
+{
+    SDL_Event e;
+    while (true) {
+        if ( SDL_WaitEvent(&e) != 0 &&
+             (e.type == SDL_KEYDOWN || e.type == SDL_QUIT) )
+            return;
+        SDL_Delay(100);
+    }
+}
+
+SDL_Texture* loadTexture(const std::string &file, SDL_Renderer *ren)
+{
+	//Khởi tạo là nullptr để tránh lỗi 'dangling pointer'
+	SDL_Texture *texture = nullptr;
+	//Nạp ảnh từ tên file (với đường dẫn)
+	SDL_Surface *loadedImage = IMG_Load(file.c_str());
+	//Nếu không có lỗi, chuyển đổi về dạng texture and và trả về
+	if (loadedImage != nullptr){
+		texture = SDL_CreateTextureFromSurface(ren, loadedImage);
+		SDL_FreeSurface(loadedImage);
+		//Đảm bảo việc chuyển đổi không có lỗi
+		if (texture == nullptr){
+			logSDLError(std::cout, "CreateTextureFromSurface", false);
+		}
+	}
+	else {
+		logSDLError(std::cout, "LoadPNG", false);
+	}
+	return texture;
+}
+
+void renderTexture(SDL_Texture *tex, SDL_Renderer *ren, int x, int y)
+{
+	//Thiết lập hình chữ nhật đích mà chúng ta muốn vẽ ảnh vào trong
+	SDL_Rect dst;
+	dst.x = x;
+	dst.y = y;
+	//Truy vẫn texture để lấy chiều rộng và cao (vào chiều rộng và cao tương ứng của hình chữ nhật đích)
+	SDL_QueryTexture(tex, NULL, NULL, &dst.w, &dst.h);
+    //Đưa toàn bộ ảnh trong texture vào hình chữ nhật đích
+	SDL_RenderCopy(ren, tex, NULL, &dst);
+}
+
+/**
+* Vẽ một SDL_Texture lên một SDL_Renderer tại toạ độ (x, y), với
+* chiều rộng và cao mới
+* @param tex: texture nguồn chúng ta muốn vẽ ra
+* @param ren: thiết bị renderer chúng ta muốn vẽ vào
+* @param x: hoành độ
+* @param y: tung độ
+* @param w: chiều rộng (mới)
+* @param h: độ cao (mới)
+*/
+void renderTexture(SDL_Texture *tex, SDL_Renderer *ren, int x, int y, int w, int h)
+{
+
+	SDL_Rect dst;
+	dst.x = x;
+	dst.y = y;
+    dst.w = w;
+    dst.h = h;
+
+	SDL_RenderCopy(ren, tex, NULL, &dst);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
