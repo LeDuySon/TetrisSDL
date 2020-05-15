@@ -8,6 +8,8 @@
 #include <vector>
 #include <unistd.h>
 #include <SDL_ttf.h>
+#include <SDL_mixer.h>
+
 
 
 //#include "SDL_utils.h"
@@ -29,7 +31,9 @@ SDL_Color fontColor = {255, 255, 255, 255};
 
 
 int CalPoint = 0;
-
+int sum_lines = 0;
+// ON OFF MUSIC
+bool MUSIC = false;
 bool GAME_OVER = false;
 
 using namespace std;
@@ -210,7 +214,7 @@ void draw_shadow(SDL_Renderer* renderer){
 }
 
 //game menu
-int game_menu(SDL_Texture *menu, SDL_Renderer* renderer,SDL_Texture *direct, SDL_Rect cropDR[], SDL_Rect blockDR[], const int& margin_top, const int& margin_l, const int& b_w, const int& b_h){
+int game_menu(SDL_Texture *menu, SDL_Renderer* renderer,SDL_Texture *direct, SDL_Texture *music_off, SDL_Rect cropDR[], SDL_Rect blockDR[], const int& margin_top, const int& margin_l, const int& b_w, const int& b_h){
     // distance between button
     float dist = 24.5;
     int choice;
@@ -219,8 +223,12 @@ int game_menu(SDL_Texture *menu, SDL_Renderer* renderer,SDL_Texture *direct, SDL
     while(true){
         while( SDL_PollEvent(&e) ){
                 SDL_RenderClear(renderer);
-                renderTexture(menu, renderer, 0, 0, W_WIDTH, W_HEIGHT);
-
+                // render on or off music  !!
+                if(MUSIC){
+                    renderTexture(menu, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+                }else{
+                renderTexture(music_off, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+                }
                 switch( e.type ){
                     case SDL_MOUSEMOTION:
                         x = e.motion.x;
@@ -254,6 +262,15 @@ int game_menu(SDL_Texture *menu, SDL_Renderer* renderer,SDL_Texture *direct, SDL
                             return 0;
                         }else if(y >= (margin_top + 2 * b_h + 2 * dist) && y <= (margin_top+ 3*b_h + 2*dist) && x >= margin_l && x <= margin_l + b_w){
                             return 0;
+                        }else if(x >= 400 && x <= 430 && y >= 580 && y <= 625){
+                            SDL_RenderClear(renderer);
+                            renderTexture(menu, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+                            MUSIC = true;
+                        }else if(x >= 438 && x <= 475 && y >= 580 && y <= 625){
+                            SDL_RenderClear(renderer);
+                            renderTexture(music_off, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+                            MUSIC = false;
+
                         }
                         break;
 
@@ -279,24 +296,31 @@ int compute_points(int level, int line_count)
     }
     return 0;
 }
+void ttf_handle(SDL_Renderer* renderer, SDL_Texture* font_Texture, SDL_Surface* ttf_Surface, int i, SDL_Rect Text_c[]){
+    font_Texture = SDL_CreateTextureFromSurface(renderer, ttf_Surface);
+    SDL_RenderCopy(renderer, font_Texture, NULL, &Text_c[i]);
+    return;
+}
 void render_score(SDL_Renderer* renderer, SDL_Texture* font_Texture, int &level , const int& line_count,SDL_Rect Text_c[], TTF_Font *FONT){
     if(CalPoint <= 500) level = 1;
     else if(CalPoint <= 1500 && CalPoint > 500) level = 2;
     else if(CalPoint > 1500) level = 3;
-    CalPoint = compute_points(level, line_count);
     string score = to_string(CalPoint)+ "        ";
-    cout << "hallo" << endl;
+    string level_str = to_string(level)+ "        ";
+    string lines = to_string(sum_lines)+ "        ";
     // ERROR!!!! THIS LINE FUCK !! Undermaintained!!!!!!!!!!!
-    SDL_Surface* textSurface = TTF_RenderText_Solid(FONT, score.c_str(), fontColor);
+    SDL_Surface* score_Surface = TTF_RenderText_Solid(FONT, score.c_str(), fontColor);
+    SDL_Surface* lines_Surface = TTF_RenderText_Solid(FONT, lines.c_str(), fontColor);
+    SDL_Surface* level_Surface = TTF_RenderText_Solid(FONT, level_str.c_str(), fontColor);
+
 
     cout << TTF_GetError()  << endl;
-    font_Texture = SDL_CreateTextureFromSurface(renderer, textSurface);
-    if( font_Texture == NULL )
-    {
-            cout <<  "Unable to create texture from rendered text! " << SDL_GetError() << endl;
-    }
 
-    SDL_RenderCopy(renderer, font_Texture, NULL, &Text_c[2]);
+    ttf_handle(renderer, font_Texture, score_Surface, 2, Text_c);
+    ttf_handle(renderer, font_Texture, lines_Surface, 0, Text_c);
+    ttf_handle(renderer, font_Texture, level_Surface, 1, Text_c);
+
+
     return;
 
 
@@ -313,6 +337,9 @@ int main(int argc, char *argv[]){
     SDL_Texture *back_ground = loadTexture("images/new_113.png", renderer);
     SDL_Texture *menu = loadTexture("images/menu.png", renderer);
     SDL_Texture *gameover = loadTexture("images/gameover_new.png", renderer);
+    SDL_Texture *music_off = loadTexture("images/musicoff.png", renderer);
+
+
     SDL_Texture* font_Texture;
     int gov_w, gov_h;
     SDL_QueryTexture(gameover, NULL, NULL, &gov_w, &gov_h);
@@ -334,6 +361,18 @@ int main(int argc, char *argv[]){
         Text_c[i].x = 700;
         Text_c[i].y = 60*(i+1);
     }
+
+
+    //START MUSIC OOOOOO!!!!!!!!!!
+     if( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_AUDIO ) < 0 )
+    {
+        cout << "ERROR!" << endl;
+    }
+    if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0){
+        cout << "EERRR!" << Mix_GetError() << endl;
+    }
+    Mix_Music *bgm = Mix_LoadMUS("music/Tetris_theme.ogg.mp3");
+
 
     // settle some texttures
     SDL_Texture *direct  = loadTexture("images/direct.png", renderer);
@@ -383,7 +422,7 @@ int main(int argc, char *argv[]){
     }
     //menu selection :D
     int choice;
-    choice = game_menu(menu, renderer, direct, cropDR, blockDR, margin_top, margin_l, bdr_w, bdr_h);
+    choice = game_menu(menu, renderer, direct,music_off, cropDR, blockDR, margin_top, margin_l, bdr_w, bdr_h);
 
     if(choice == 1){
         // start game
@@ -393,7 +432,6 @@ int main(int argc, char *argv[]){
         next_block(renderer, image, crop_next, iw, ih, shape.top(), colors.top());
         render_score(renderer, font_Texture, level, lines, Text_c, FONT);
         SDL_RenderPresent(renderer);
-
         //define block width and height
         SDL_Rect prev_block, crop_a;
         prev_block.w = b_w;
@@ -413,7 +451,26 @@ int main(int argc, char *argv[]){
 
 
         while(running){
+
+
             while( SDL_PollEvent(&e) ){
+                if(MUSIC){
+                    if( Mix_PlayingMusic() == 0 )
+                    {
+                            Mix_PlayMusic( bgm, -1 );
+                            MUSIC = true;
+                    }
+                    else
+                    {
+                        if( Mix_PausedMusic() == 1 )
+                        {
+                         Mix_ResumeMusic();
+                         }
+                    }
+                }else{
+                    Mix_HaltMusic();
+
+                }
                 switch( e.type ){
                     // Look for a keypress
                     case SDL_KEYDOWN:
@@ -560,6 +617,10 @@ int main(int argc, char *argv[]){
                 if(same < N) cut -= 1;
                 else lines += 1;
             }
+            //calculate point per lines
+            sum_lines += lines;
+            CalPoint += compute_points(level, lines);
+            lines = 0;
 
 
             for(int i = M-1; i >= 0; i--){
@@ -598,11 +659,15 @@ int main(int argc, char *argv[]){
         }
     }
     waitUntilKeyPressed();
+    SDL_DestroyTexture(menu);
+    SDL_DestroyTexture(gameover);
+    SDL_DestroyTexture(music_off);
     SDL_DestroyTexture(image);
     SDL_DestroyTexture(back_ground);
     SDL_DestroyRenderer(renderer);
     quitSDL(window, renderer);
-
+    Mix_Quit();
+    IMG_Quit();
     return 0;
 
 
