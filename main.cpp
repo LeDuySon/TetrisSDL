@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 #include <unistd.h>
+#include <SDL_ttf.h>
+
 
 //#include "SDL_utils.h"
 const int W_WIDTH = 868;
@@ -20,6 +22,13 @@ const int N = 18;
 //size of block
 const int b_w = (SCREEN_WIDTH/N);
 const int b_h = (SCREEN_HEIGHT/M);
+// text font and color
+//TTF_Font *FONT = TTF_OpenFont("fonts/LibreFranklin-Medium.ttf", 30);
+
+SDL_Color fontColor = {255, 255, 255, 255};
+
+
+int CalPoint = 0;
 
 bool GAME_OVER = false;
 
@@ -139,7 +148,7 @@ void initblock(SDL_Renderer* renderer,SDL_Texture *image, SDL_Rect &crop, const 
         block[i].h = b_h;
         crop.x = (color-1)*18;
         crop.y = 0;
-        crop.w = iw/8;
+        crop.w = iw/8+2;
         crop.h = ih;
         SDL_RenderCopy(renderer, image, &crop, &block[i]);
     }
@@ -159,7 +168,8 @@ void next_block(SDL_Renderer* renderer,SDL_Texture *image, SDL_Rect &crop, const
         nextblock[i].h = b_h+10;
         crop.x = (color-1)*18;
         crop.y = 0;
-        crop.w = iw/8;
+        // + them 2 cho do~ bi lech block :D
+        crop.w = iw/8+2;
         crop.h = ih;
         SDL_RenderCopy(renderer, image, &crop, &nextblock[i]);
     }
@@ -240,6 +250,7 @@ int game_menu(SDL_Texture *menu, SDL_Renderer* renderer,SDL_Texture *direct, SDL
                             SDL_RenderClear(renderer);
                             return 1;
                         }else if(y >= (margin_top + b_h + dist) && y <= (margin_top+ 2 * b_h + dist) && x >= margin_l && x <= margin_l + b_w){
+                            SDL_RenderClear(renderer);
                             return 0;
                         }else if(y >= (margin_top + 2 * b_h + 2 * dist) && y <= (margin_top+ 3*b_h + 2*dist) && x >= margin_l && x <= margin_l + b_w){
                             return 0;
@@ -268,7 +279,29 @@ int compute_points(int level, int line_count)
     }
     return 0;
 }
+void render_score(SDL_Renderer* renderer, SDL_Texture* font_Texture, int &level , const int& line_count,SDL_Rect Text_c[], TTF_Font *FONT){
+    if(CalPoint <= 500) level = 1;
+    else if(CalPoint <= 1500 && CalPoint > 500) level = 2;
+    else if(CalPoint > 1500) level = 3;
+    CalPoint = compute_points(level, line_count);
+    string score = to_string(CalPoint)+ "        ";
+    cout << "hallo" << endl;
+    // ERROR!!!! THIS LINE FUCK !! Undermaintained!!!!!!!!!!!
+    SDL_Surface* textSurface = TTF_RenderText_Solid(FONT, score.c_str(), fontColor);
 
+    cout << TTF_GetError()  << endl;
+    font_Texture = SDL_CreateTextureFromSurface(renderer, textSurface);
+    if( font_Texture == NULL )
+    {
+            cout <<  "Unable to create texture from rendered text! " << SDL_GetError() << endl;
+    }
+
+    SDL_RenderCopy(renderer, font_Texture, NULL, &Text_c[2]);
+    return;
+
+
+
+}
 
 int main(int argc, char *argv[]){
     SDL_Window* window;
@@ -280,8 +313,27 @@ int main(int argc, char *argv[]){
     SDL_Texture *back_ground = loadTexture("images/new_113.png", renderer);
     SDL_Texture *menu = loadTexture("images/menu.png", renderer);
     SDL_Texture *gameover = loadTexture("images/gameover_new.png", renderer);
+    SDL_Texture* font_Texture;
     int gov_w, gov_h;
     SDL_QueryTexture(gameover, NULL, NULL, &gov_w, &gov_h);
+    //check TTF
+    if (TTF_Init() < 0) {
+    // Error handling code
+            return 0;
+    }
+
+    //setting ttf
+    TTF_Font *FONT = TTF_OpenFont("fonts/LibreFranklin-Medium.ttf", 30);
+    //int params to calculate scores
+    int lines = 0, level = 1;
+    // Rect contain text
+    SDL_Rect Text_c[3];
+    for(int i = 0; i < 3; i++){
+        Text_c[i].w = 100;
+        Text_c[i].h = 30;
+        Text_c[i].x = 700;
+        Text_c[i].y = 60*(i+1);
+    }
 
     // settle some texttures
     SDL_Texture *direct  = loadTexture("images/direct.png", renderer);
@@ -335,16 +387,18 @@ int main(int argc, char *argv[]){
 
     if(choice == 1){
         // start game
+
         renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
         initblock(renderer, image, crop, iw, ih, shape.dequeue(), colors.dequeue());
         next_block(renderer, image, crop_next, iw, ih, shape.top(), colors.top());
+        render_score(renderer, font_Texture, level, lines, Text_c, FONT);
         SDL_RenderPresent(renderer);
 
         //define block width and height
         SDL_Rect prev_block, crop_a;
         prev_block.w = b_w;
         prev_block.h = b_h;
-        crop_a.w = iw/7;
+        crop_a.w = iw/8;
         crop_a.h = ih;
         crop_a.y = 0;
 
@@ -395,6 +449,8 @@ int main(int argc, char *argv[]){
                 SDL_RenderClear(renderer);
                 renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
                 next_block(renderer, image, crop_next, iw, ih, shape.top(), colors.top());
+                render_score(renderer, font_Texture, level, lines, Text_c, FONT);
+
                 for(int i = 0; i < 4; i++){
                     block[i].x += dx*b_w;
                     SDL_RenderCopy(renderer, image, &crop, &block[i]);
@@ -405,6 +461,7 @@ int main(int argc, char *argv[]){
                     SDL_RenderClear(renderer);
                     renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
                     next_block(renderer, image, crop_next, iw, ih, shape.top(), colors.top());
+                    render_score(renderer, font_Texture, level, lines, Text_c, FONT);
                     for(int i =0; i < 4; i++){
                         block[i].x = prev[i].x;
                         block[i].y = prev[i].y;
@@ -422,6 +479,8 @@ int main(int argc, char *argv[]){
                 SDL_RenderClear(renderer);
                 renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
                 next_block(renderer, image, crop_next, iw, ih, shape.top(), colors.top());
+                render_score(renderer, font_Texture, level, lines, Text_c, FONT);
+
                 Point center;
                 center.x = block[1].x;
                 center.y = block[1].y;
@@ -440,6 +499,8 @@ int main(int argc, char *argv[]){
                     SDL_RenderClear(renderer);
                     renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
                     next_block(renderer, image, crop_next, iw, ih, shape.top(), colors.top());
+                    render_score(renderer, font_Texture, level, lines, Text_c, FONT);
+
                     for(int i =0; i < 4; i++){
                         block[i].x = prev[i].x;
                         block[i].y = prev[i].y;
@@ -454,6 +515,8 @@ int main(int argc, char *argv[]){
                 SDL_RenderClear(renderer);
                 renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
                 next_block(renderer, image, crop_next, iw, ih, shape.top(), colors.top());
+                render_score(renderer, font_Texture, level, lines, Text_c, FONT);
+
                 for(int i = 0; i < 4; i++){
                     block[i].y += dy*b_h;
                     SDL_RenderCopy(renderer, image, &crop, &block[i]);
@@ -469,6 +532,8 @@ int main(int argc, char *argv[]){
                     SDL_RenderClear(renderer);
                     renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
                     next_block(renderer, image, crop_next, iw, ih, shape.top(), colors.top());
+                    render_score(renderer, font_Texture, level, lines, Text_c, FONT);
+
 
 
                     n=rand()%7;
@@ -478,6 +543,7 @@ int main(int argc, char *argv[]){
 
                     initblock(renderer, image, crop, iw, ih, shape.dequeue(), colors.dequeue());
                     next_block(renderer, image, crop_next, iw, ih, shape.top(), colors.top());
+
 
                 }
                 delay = 500, last_time = current_time;
@@ -492,13 +558,15 @@ int main(int argc, char *argv[]){
                     maps[cut][j] = maps[i][j];
                 }
                 if(same < N) cut -= 1;
+                else lines += 1;
             }
 
 
             for(int i = M-1; i >= 0; i--){
                 for(int j = 0; j < N; j++){
                     if(maps[i][j] != 0){
-                        crop_a.x = (maps[i][j]-1)*18;
+                        // + 2 cho block dep hon :D
+                        crop_a.x = (maps[i][j]-1)*18 + 2;
                         prev_block.x = j*b_w;
                         prev_block.y = i*b_h;
                         SDL_RenderCopy(renderer, image, &crop_a, &prev_block);
@@ -515,12 +583,11 @@ int main(int argc, char *argv[]){
     //        checkgame_over();
             if(GAME_OVER){
                 cout << "Game over!!!";
-                renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+//                renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
 
-                show_gameover(renderer, gameover, gov_w, gov_h);
-                SDL_RenderPresent(renderer);
-
-                sleep(5);
+//                show_gameover(renderer, gameover, gov_w, gov_h);
+//                SDL_RenderPresent(renderer);
+                sleep(3);
 
 
             }
