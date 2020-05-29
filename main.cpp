@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <SDL_ttf.h>
 #include <SDL_mixer.h>
+using namespace std;
 
 
 
@@ -36,7 +37,8 @@ int sum_lines = 0;
 bool MUSIC = false;
 bool GAME_OVER = false;
 
-using namespace std;
+
+int fpsCount=0;
 
 int maps[M][N] = {0};
 SDL_Rect block[4];
@@ -136,6 +138,7 @@ bool valid(){
         if(block[i].x  > (SCREEN_WIDTH - b_w) || block[i].y+b_h >= SCREEN_HEIGHT || block[i].x < 0 || block[i].y < 0){
             return false;
         }else if(maps[(block[i].y+b_h)/b_h][(block[i].x)/b_w]){
+
             return false;
             }
     }
@@ -286,7 +289,7 @@ int compute_points(int level, int line_count)
     switch (line_count)
     {
     case 1:
-        return 40 * (level + 1);
+        return 1000 * (level + 1);
     case 2:
         return 100 * (level + 1);
     case 3:
@@ -327,6 +330,11 @@ void render_score(SDL_Renderer* renderer, SDL_Texture* font_Texture, int &level 
 
 }
 
+void set_delay(int &delay,const int& level){
+    if(level == 2) delay = 300;
+    else if(level == 3) delay = 100;
+    else delay = 450;
+}
 int main(int argc, char *argv[]){
     SDL_Window* window;
     SDL_Renderer* renderer;
@@ -339,7 +347,7 @@ int main(int argc, char *argv[]){
     SDL_Texture *gameover = loadTexture("images/gameover_new.png", renderer);
     SDL_Texture *music_off = loadTexture("images/musicoff.png", renderer);
 
-
+    bool isRestart = false;
     SDL_Texture* font_Texture;
     int gov_w, gov_h;
     SDL_QueryTexture(gameover, NULL, NULL, &gov_w, &gov_h);
@@ -444,15 +452,30 @@ int main(int argc, char *argv[]){
         bool rotates = false;
         bool running = true;
         SDL_Event e;
-        float delay = 500;
+        int delay = 500;
         unsigned int current_time , last_time=0;
         int dx=0, dy=1;
 
 
 
         while(running){
-
-
+            if (isRestart)
+            {
+                game_menu(menu, renderer, direct,music_off, cropDR, blockDR, margin_top, margin_l, bdr_w, bdr_h);
+                isRestart = false;
+                /*isRestart = false;
+                GAME_OVER = false;
+                level = 0;
+                sum_lines = 0;
+                CalPoint = 0;
+                for(int i = M-1; i >= 0; i--){
+                    for(int j = 0; j < N; j++){
+                            maps[i][j] = 0;
+                    }
+                }*/
+            }
+            fpsCount++;
+            cout<<fpsCount<<"\n";
             while( SDL_PollEvent(&e) ){
                 if(MUSIC){
                     if( Mix_PlayingMusic() == 0 )
@@ -577,11 +600,11 @@ int main(int argc, char *argv[]){
                 for(int i = 0; i < 4; i++){
                     block[i].y += dy*b_h;
                     SDL_RenderCopy(renderer, image, &crop, &block[i]);
-
+                    fpsCount=0;
                 }
 
                 if(!valid()){
-                    cout << "color is: " << colors.bottom();
+
                     for(int i = 0; i < 4; i++){
                         maps[block[i].y/b_h][block[i].x/b_w] = colors.bottom();
                     }
@@ -603,7 +626,11 @@ int main(int argc, char *argv[]){
 
 
                 }
-                delay = 500, last_time = current_time;
+                last_time = current_time;
+                // delay - level
+
+
+                set_delay(delay, level);
 
             }
             //check line
@@ -643,12 +670,26 @@ int main(int argc, char *argv[]){
 
     //        checkgame_over();
             if(GAME_OVER){
-                cout << "Game over!!!";
-//                renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+                //cout << "Game over!!!";
+                renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
 
-//                show_gameover(renderer, gameover, gov_w, gov_h);
-//                SDL_RenderPresent(renderer);
-                sleep(3);
+                show_gameover(renderer, gameover, gov_w, gov_h);
+                SDL_RenderPresent(renderer);
+                //sleep(3);
+                if (e.type == SDL_KEYDOWN )
+                {
+
+                    if (e.key.keysym.sym == SDLK_ESCAPE)
+                    {
+                        if(isRestart == false)
+                        {
+
+                            isRestart =true;
+                            cout<<"restart";
+                        }
+                    }
+                }
+                //break;
 
 
             }
