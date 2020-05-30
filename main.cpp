@@ -37,10 +37,10 @@ int sum_lines = 0;
 bool MUSIC = false;
 // Set logic game
 bool GAME_OVER = false;
-bool INIT = true;
+//bool INIT = true;
 bool isRestart = false;
 bool isPause = false;
-int goMenu = 0;
+bool END_GAME = false;
 
 
 
@@ -348,7 +348,7 @@ int compute_points(int level, int line_count)
     switch (line_count)
     {
     case 1:
-        return 40 * (level + 1);
+        return 1000 * (level + 1);
     case 2:
         return 100 * (level + 1);
     case 3:
@@ -576,6 +576,9 @@ int main(int argc, char *argv[]){
                                 case SDLK_p:
                                     isPause = true;
                                     break;
+                                case SDLK_q:
+                                    END_GAME = true;
+                                    break;
                                 default:
                                     break;
                             }
@@ -778,6 +781,9 @@ int main(int argc, char *argv[]){
                             {
                                 isPause = false;
                                 break;
+                            }else if(e.key.keysym.sym == SDLK_q){
+                                END_GAME = true;
+                                break;
                             }
                         }
                     cout << "pause" << endl;
@@ -786,6 +792,9 @@ int main(int argc, char *argv[]){
                 SDL_RenderPresent(renderer);
 
 
+            }
+            if(END_GAME){
+                break;
             }
 
 
