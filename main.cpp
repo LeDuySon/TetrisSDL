@@ -35,7 +35,13 @@ int CalPoint = 0;
 int sum_lines = 0;
 // ON OFF MUSIC
 bool MUSIC = false;
+// Set logic game
 bool GAME_OVER = false;
+bool INIT = true;
+bool isRestart = false;
+bool isPause = false;
+int goMenu = 0;
+
 
 
 int fpsCount=0;
@@ -135,9 +141,9 @@ bool valid(){
 
     for(int i = 0; i < 4; i++){
 
-        if(block[i].x  > (SCREEN_WIDTH - b_w) || block[i].y+b_h >= SCREEN_HEIGHT || block[i].x < 0 || block[i].y < 0){
+        if(block[i].x  > (SCREEN_WIDTH - b_w) || block[i].y+b_h > SCREEN_HEIGHT || block[i].x < 0 || block[i].y < 0){
             return false;
-        }else if(maps[(block[i].y+b_h)/b_h][(block[i].x)/b_w]){
+        }else if(maps[(block[i].y)/b_h][(block[i].x)/b_w]){
 
             return false;
             }
@@ -147,9 +153,8 @@ bool valid(){
 }
 
 void initblock(SDL_Renderer* renderer,SDL_Texture *image, SDL_Rect &crop, const int& iw, const int& ih, const int& n, const int& color){
-
     for(int i =0; i < 4; i++){
-        block[i].x = (shapes[n][i]/2)*b_w;
+        block[i].x = (shapes[n][i]/2)*b_w + SCREEN_WIDTH/2;
         block[i].y = (shapes[n][i]%2)*b_h;
         block[i].w = b_w;
         block[i].h = b_h;
@@ -160,9 +165,11 @@ void initblock(SDL_Renderer* renderer,SDL_Texture *image, SDL_Rect &crop, const 
         SDL_RenderCopy(renderer, image, &crop, &block[i]);
     }
     if(!valid()){
-        SDL_RenderClear(renderer);
+//        SDL_RenderClear(renderer);
         GAME_OVER = true;
-    }
+}
+
+
 
 }
 
@@ -208,7 +215,8 @@ void draw_shadow(SDL_Renderer* renderer){
         }
     }
     for(int i = 0; i < 4; i++){
-        SDL_SetRenderDrawColor(renderer, 255, 0, 255, 0); // white
+        block[i].y -= b_h;
+        SDL_SetRenderDrawColor(renderer, 255, 0, 255, 0); // purple
         SDL_RenderDrawRect(renderer, &block[i]);
         block[i].y = shadow[i];
     }
@@ -284,12 +292,63 @@ int game_menu(SDL_Texture *menu, SDL_Renderer* renderer,SDL_Texture *direct, SDL
     }
 }
 //compute point
+int sub_menu(SDL_Texture *menu, SDL_Renderer* renderer,SDL_Texture *direct, SDL_Rect cropDR[], SDL_Rect blockDR[], const int& margin_top, const int& margin_l, const int& b_w, const int& b_h){
+    float dist = 24.5;
+    int choice;
+    int x, y;
+    SDL_Event e;
+    while(true){
+        while( SDL_PollEvent(&e) ){
+                SDL_RenderClear(renderer);
+                // render on or off music  !!
+                switch( e.type ){
+                    case SDL_MOUSEMOTION:
+                        x = e.motion.x;
+                        y = e.motion.y;
+                        if(y >= margin_top && y <= (margin_top+b_h) && x >= margin_l && x <= margin_l + b_w){
+                            for(int i = 0; i < 2; i++){
+                                cropDR[i].y = margin_top ;
+                                SDL_RenderCopy(renderer, direct, &blockDR[i], &cropDR[i]);
+                            }
+                        }else if(y >= (margin_top + b_h + dist) && y <= (margin_top+ 2 * b_h + dist) && x >= margin_l && x <= margin_l + b_w){
+                            for(int i = 0; i < 2; i++){
+                                cropDR[i].y = margin_top + b_h + dist;
+                                SDL_RenderCopy(renderer, direct, &blockDR[i], &cropDR[i]);
+
+                            }
+                        }else if(y >= (margin_top + 2 * b_h + 2 * dist) && y <= (margin_top+ 3*b_h + 2*dist) && x >= margin_l && x <= margin_l + b_w){
+                            for(int i = 0; i < 2; i++){
+                                cropDR[i].y = margin_top + 2*b_h + 2*dist;
+                                SDL_RenderCopy(renderer, direct, &blockDR[i], &cropDR[i]);
+                            }
+                        }
+                        break;
+                    case SDL_MOUSEBUTTONDOWN:
+                        x = e.motion.x;
+                        y = e.motion.y;
+                        if(y >= margin_top && y <= (margin_top+b_h) && x >= margin_l && x <= margin_l + b_w){
+                            SDL_RenderClear(renderer);
+                            return 1;
+                        }else if(y >= (margin_top + b_h + dist) && y <= (margin_top+ 2 * b_h + dist) && x >= margin_l && x <= margin_l + b_w){
+                            SDL_RenderClear(renderer);
+                            return 0;
+                        }else if(y >= (margin_top + 2 * b_h + 2 * dist) && y <= (margin_top+ 3*b_h + 2*dist) && x >= margin_l && x <= margin_l + b_w){
+                            return 0;
+                        }
+                        break;
+
+                }
+                SDL_RenderPresent(renderer);
+
+        }
+    }
+}
 int compute_points(int level, int line_count)
 {
     switch (line_count)
     {
     case 1:
-        return 1000 * (level + 1);
+        return 40 * (level + 1);
     case 2:
         return 100 * (level + 1);
     case 3:
@@ -335,6 +394,12 @@ void set_delay(int &delay,const int& level){
     else if(level == 3) delay = 100;
     else delay = 450;
 }
+
+void show_pause(SDL_Renderer* renderer, SDL_Texture *pausee, const int& gov_w, const int& gov_h){
+    cout << "a";
+    renderTexture(pausee, renderer, 40, 100, gov_w, gov_h);
+
+}
 int main(int argc, char *argv[]){
     SDL_Window* window;
     SDL_Renderer* renderer;
@@ -346,8 +411,8 @@ int main(int argc, char *argv[]){
     SDL_Texture *menu = loadTexture("images/menu.png", renderer);
     SDL_Texture *gameover = loadTexture("images/gameover_new.png", renderer);
     SDL_Texture *music_off = loadTexture("images/musicoff.png", renderer);
+    SDL_Texture *pause = loadTexture("images/pause.png", renderer);
 
-    bool isRestart = false;
     SDL_Texture* font_Texture;
     int gov_w, gov_h;
     SDL_QueryTexture(gameover, NULL, NULL, &gov_w, &gov_h);
@@ -434,7 +499,6 @@ int main(int argc, char *argv[]){
 
     if(choice == 1){
         // start game
-
         renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
         initblock(renderer, image, crop, iw, ih, shape.dequeue(), colors.dequeue());
         next_block(renderer, image, crop_next, iw, ih, shape.top(), colors.top());
@@ -459,242 +523,271 @@ int main(int argc, char *argv[]){
 
 
         while(running){
-            if (isRestart)
-            {
-                game_menu(menu, renderer, direct,music_off, cropDR, blockDR, margin_top, margin_l, bdr_w, bdr_h);
-                isRestart = false;
-                /*isRestart = false;
-                GAME_OVER = false;
-                level = 0;
-                sum_lines = 0;
-                CalPoint = 0;
-                for(int i = M-1; i >= 0; i--){
-                    for(int j = 0; j < N; j++){
-                            maps[i][j] = 0;
-                    }
-                }*/
-            }
-            fpsCount++;
-            cout<<fpsCount<<"\n";
-            while( SDL_PollEvent(&e) ){
-                if(MUSIC){
-                    if( Mix_PlayingMusic() == 0 )
-                    {
-                            Mix_PlayMusic( bgm, -1 );
-                            MUSIC = true;
-                    }
-                    else
-                    {
-                        if( Mix_PausedMusic() == 1 )
-                        {
-                         Mix_ResumeMusic();
-                         }
-                    }
-                }else{
-                    Mix_HaltMusic();
-
-                }
-                switch( e.type ){
-                    // Look for a keypress
-                    case SDL_KEYDOWN:
-                        switch( e.key.keysym.sym ){
-                            case SDLK_LEFT:
-                                dx -= 1;
-                                break;
-                            case SDLK_RIGHT:
-                                dx += 1;
-                                break;
-                            case SDLK_UP:
-                                rotates = true;
-                                break;
-                            case SDLK_DOWN:
-                                delay = 1;
-                                break;
-                            default:
-                                break;
+            if(!isPause){
+                if (isRestart)
+                {
+                    isRestart = false;
+                    GAME_OVER = false;
+                    level = 0;
+                    sum_lines = 0;
+                    CalPoint = 0;
+                    for(int i = M-1; i >= 0; i--){
+                        for(int j = 0; j < N; j++){
+                                maps[i][j] = 0;
                         }
                     }
-            }
+                }
+                fpsCount++;
+                cout<<fpsCount<<"\n";
+                while( SDL_PollEvent(&e) ){
+                    if(MUSIC){
+                        if( Mix_PlayingMusic() == 0 )
+                        {
+                                Mix_PlayMusic( bgm, -1 );
+                                MUSIC = true;
+                        }
+                        else
+                        {
+                            if( Mix_PausedMusic() == 1 )
+                            {
+                             Mix_ResumeMusic();
+                             }
+                        }
+                    }else{
+                        Mix_HaltMusic();
+
+                    }
+                    switch( e.type ){
+                        // Look for a keypress
+                        case SDL_KEYDOWN:
+                            switch( e.key.keysym.sym ){
+                                case SDLK_LEFT:
+                                    dx -= 1;
+                                    break;
+                                case SDLK_RIGHT:
+                                    dx += 1;
+                                    break;
+                                case SDLK_UP:
+                                    rotates = true;
+                                    break;
+                                case SDLK_DOWN:
+                                    delay = 1;
+                                    break;
+                                case SDLK_p:
+                                    isPause = true;
+                                    break;
+                                default:
+                                    break;
+                            }
+                        }
+                }
 
 
-            //previous position
-            for(int p = 0; p < 4; p++){
-                prev[p].x = block[p].x;
-                prev[p].y = block[p].y;
-
-            }
-
-            // move horizontal direction <-->
-            if(dx != 0){
-                SDL_RenderClear(renderer);
-                renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
-                next_block(renderer, image, crop_next, iw, ih, shape.top(), colors.top());
-                render_score(renderer, font_Texture, level, lines, Text_c, FONT);
-
-                for(int i = 0; i < 4; i++){
-                    block[i].x += dx*b_w;
-                    SDL_RenderCopy(renderer, image, &crop, &block[i]);
+                //previous position
+                for(int p = 0; p < 4; p++){
+                    prev[p].x = block[p].x;
+                    prev[p].y = block[p].y;
 
                 }
-                if(!valid()){
 
+                // move horizontal direction <-->
+                if(dx != 0){
                     SDL_RenderClear(renderer);
                     renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
                     next_block(renderer, image, crop_next, iw, ih, shape.top(), colors.top());
                     render_score(renderer, font_Texture, level, lines, Text_c, FONT);
-                    for(int i =0; i < 4; i++){
-                        block[i].x = prev[i].x;
-                        block[i].y = prev[i].y;
-                        SDL_RenderCopy(renderer, image, &crop, &block[i]);
-                    }
-                }
-                dx = 0;
-            }
-
-
-            //init center to rotate
-            // default center block[1]
-            if(rotates){
-                rotates = false;
-                SDL_RenderClear(renderer);
-                renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
-                next_block(renderer, image, crop_next, iw, ih, shape.top(), colors.top());
-                render_score(renderer, font_Texture, level, lines, Text_c, FONT);
-
-                Point center;
-                center.x = block[1].x;
-                center.y = block[1].y;
-                for(int i = 0; i < 4; i++){
-                    int y = block[i].x - center.x;
-                    int x = block[i].y - center.y;
-                    //rotate 90 degree matrix
-                    //[[0,-1],
-                    // [1,0]]
-                    block[i].x = -x + center.x;
-                    block[i].y = y + center.y;
-                    SDL_RenderCopy(renderer, image, &crop, &block[i]);
-
-                }
-                if(!valid()){
-                    SDL_RenderClear(renderer);
-                    renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
-                    next_block(renderer, image, crop_next, iw, ih, shape.top(), colors.top());
-                    render_score(renderer, font_Texture, level, lines, Text_c, FONT);
-
-                    for(int i =0; i < 4; i++){
-                        block[i].x = prev[i].x;
-                        block[i].y = prev[i].y;
-                        SDL_RenderCopy(renderer, image, &crop, &block[i]);
-                    }
-                }
-            }
-            current_time = SDL_GetTicks();
-            //store what we already played
-            if(current_time > delay + last_time){
-
-                SDL_RenderClear(renderer);
-                renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
-                next_block(renderer, image, crop_next, iw, ih, shape.top(), colors.top());
-                render_score(renderer, font_Texture, level, lines, Text_c, FONT);
-
-                for(int i = 0; i < 4; i++){
-                    block[i].y += dy*b_h;
-                    SDL_RenderCopy(renderer, image, &crop, &block[i]);
-                    fpsCount=0;
-                }
-
-                if(!valid()){
 
                     for(int i = 0; i < 4; i++){
-                        maps[block[i].y/b_h][block[i].x/b_w] = colors.bottom();
+                        block[i].x += dx*b_w;
+                        SDL_RenderCopy(renderer, image, &crop, &block[i]);
+
                     }
+                    if(!valid()){
+
+                        SDL_RenderClear(renderer);
+                        renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+                        next_block(renderer, image, crop_next, iw, ih, shape.top(), colors.top());
+                        render_score(renderer, font_Texture, level, lines, Text_c, FONT);
+                        for(int i =0; i < 4; i++){
+                            block[i].x = prev[i].x;
+                            block[i].y = prev[i].y;
+                            SDL_RenderCopy(renderer, image, &crop, &block[i]);
+                        }
+                    }
+                    dx = 0;
+                }
+
+
+                //init center to rotate
+                // default center block[1]
+                if(rotates){
+                    rotates = false;
+                    SDL_RenderClear(renderer);
+                    renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+                    next_block(renderer, image, crop_next, iw, ih, shape.top(), colors.top());
+                    render_score(renderer, font_Texture, level, lines, Text_c, FONT);
+
+                    Point center;
+                    center.x = block[1].x;
+                    center.y = block[1].y;
+                    for(int i = 0; i < 4; i++){
+                        int y = block[i].x - center.x;
+                        int x = block[i].y - center.y;
+                        //rotate 90 degree matrix
+                        //[[0,-1],
+                        // [1,0]]
+                        block[i].x = -x + center.x;
+                        block[i].y = y + center.y;
+                        SDL_RenderCopy(renderer, image, &crop, &block[i]);
+
+                    }
+                    if(!valid()){
+                        SDL_RenderClear(renderer);
+                        renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+                        next_block(renderer, image, crop_next, iw, ih, shape.top(), colors.top());
+                        render_score(renderer, font_Texture, level, lines, Text_c, FONT);
+
+                        for(int i =0; i < 4; i++){
+                            block[i].x = prev[i].x;
+                            block[i].y = prev[i].y;
+                            SDL_RenderCopy(renderer, image, &crop, &block[i]);
+                        }
+                    }
+                }
+                current_time = SDL_GetTicks();
+                //store what we already played
+                if(current_time > delay + last_time){
 
                     SDL_RenderClear(renderer);
                     renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
                     next_block(renderer, image, crop_next, iw, ih, shape.top(), colors.top());
                     render_score(renderer, font_Texture, level, lines, Text_c, FONT);
 
-
-
-                    n=rand()%7;
-                    color = rand()% 7 + 1;
-                    shape.enqueue(n);
-                    colors.enqueue(color);
-
-                    initblock(renderer, image, crop, iw, ih, shape.dequeue(), colors.dequeue());
-                    next_block(renderer, image, crop_next, iw, ih, shape.top(), colors.top());
-
-
-                }
-                last_time = current_time;
-                // delay - level
-
-
-                set_delay(delay, level);
-
-            }
-            //check line
-            int cut = M-1;
-            for(int i = M-1; i > 0; i--){
-                int same = 0;
-                for(int j = 0; j < N; j++){
-                    if(maps[i][j]) same+= 1;
-                    maps[cut][j] = maps[i][j];
-                }
-                if(same < N) cut -= 1;
-                else lines += 1;
-            }
-            //calculate point per lines
-            sum_lines += lines;
-            CalPoint += compute_points(level, lines);
-            lines = 0;
-
-
-            for(int i = M-1; i >= 0; i--){
-                for(int j = 0; j < N; j++){
-                    if(maps[i][j] != 0){
-                        // + 2 cho block dep hon :D
-                        crop_a.x = (maps[i][j]-1)*18 + 2;
-                        prev_block.x = j*b_w;
-                        prev_block.y = i*b_h;
-                        SDL_RenderCopy(renderer, image, &crop_a, &prev_block);
+                    for(int i = 0; i < 4; i++){
+                        block[i].y += dy*b_h;
+                        SDL_RenderCopy(renderer, image, &crop, &block[i]);
+                        fpsCount=0;
                     }
+
+                    if(!valid()){
+                        for(int i =0; i < 4; i++){
+                            block[i].x = prev[i].x;
+                            block[i].y = prev[i].y;
+                            SDL_RenderCopy(renderer, image, &crop, &block[i]);
+                        }
+                        for(int i = 0; i < 4; i++){
+                            maps[block[i].y/b_h][block[i].x/b_w] = colors.bottom();
+                        }
+
+                        SDL_RenderClear(renderer);
+                        renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+                        next_block(renderer, image, crop_next, iw, ih, shape.top(), colors.top());
+                        render_score(renderer, font_Texture, level, lines, Text_c, FONT);
+
+
+                        if(!GAME_OVER){
+                            n=rand()%7;
+                            color = rand()% 7 + 1;
+                            shape.enqueue(n);
+                            colors.enqueue(color);
+
+                            initblock(renderer, image, crop, iw, ih, shape.dequeue(), colors.dequeue());
+                            next_block(renderer, image, crop_next, iw, ih, shape.top(), colors.top());
+                        }
+
+
+
+                    }
+                    last_time = current_time;
+                    // delay - level
+
+
+                    set_delay(delay, level);
+
                 }
+                //check line
+                int cut = M-1;
+                for(int i = M-1; i > 0; i--){
+                    int same = 0;
+                    for(int j = 0; j < N; j++){
+                        if(maps[i][j]) same+= 1;
+                        maps[cut][j] = maps[i][j];
+                    }
+                    if(same < N) cut -= 1;
+                    else lines += 1;
+                }
+                //calculate point per lines
+                sum_lines += lines;
+                CalPoint += compute_points(level, lines);
+                lines = 0;
 
 
-            }
-
-            //draw the shadowbox
-            draw_shadow(renderer);
-
-
-    //        checkgame_over();
-            if(GAME_OVER){
-                //cout << "Game over!!!";
-                renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
-
-                show_gameover(renderer, gameover, gov_w, gov_h);
-                SDL_RenderPresent(renderer);
-                //sleep(3);
-                if (e.type == SDL_KEYDOWN )
-                {
-
-                    if (e.key.keysym.sym == SDLK_ESCAPE)
-                    {
-                        if(isRestart == false)
-                        {
-
-                            isRestart =true;
-                            cout<<"restart";
+                for(int i = M-1; i >= 0; i--){
+                    for(int j = 0; j < N; j++){
+                        if(maps[i][j] != 0){
+                            // + 2 cho block dep hon :D
+                            crop_a.x = (maps[i][j]-1)*18 + 2;
+                            prev_block.x = j*b_w;
+                            prev_block.y = i*b_h;
+                            SDL_RenderCopy(renderer, image, &crop_a, &prev_block);
                         }
                     }
+
+
                 }
-                //break;
+
+                //draw the shadowbox
+                draw_shadow(renderer);
+
+
+                if(GAME_OVER){
+    //                renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
+
+                    show_gameover(renderer, gameover, gov_w, gov_h);
+                    SDL_RenderPresent(renderer);
+                    //sleep(3);
+
+                    if (e.type == SDL_KEYDOWN )
+                    {
+
+                        if (e.key.keysym.sym == SDLK_ESCAPE)
+                        {
+                            if(isRestart == false)
+                            {
+
+                                isRestart =true;
+                                cout<<"restart";
+                            }
+                        }
+                    }
+
+
+
+                }
+
+                SDL_RenderPresent(renderer);
+            }
+
+            while(isPause){
+                show_pause(renderer, pause, gov_w, gov_h);
+                while( SDL_PollEvent(&e) ){
+                    if (e.type == SDL_KEYDOWN )
+                        {
+
+                            if (e.key.keysym.sym == SDLK_r)
+                            {
+                                isPause = false;
+                                break;
+                            }
+                        }
+                    cout << "pause" << endl;
+
+                }
+                SDL_RenderPresent(renderer);
 
 
             }
 
-            SDL_RenderPresent(renderer);
 
 
         }
@@ -706,6 +799,8 @@ int main(int argc, char *argv[]){
     SDL_DestroyTexture(image);
     SDL_DestroyTexture(back_ground);
     SDL_DestroyRenderer(renderer);
+    SDL_DestroyTexture(pause);
+
     quitSDL(window, renderer);
     Mix_Quit();
     IMG_Quit();
