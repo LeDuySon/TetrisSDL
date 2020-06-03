@@ -40,8 +40,11 @@ bool GAME_OVER = false;
 //bool INIT = true;
 bool isRestart = false;
 bool isPause = false;
+bool isPlay = false;
+bool isMain = false;
+bool isSubmenu = false;
 bool END_GAME = false;
-
+bool mergeShadow = false;
 
 
 int fpsCount=0;
@@ -203,7 +206,7 @@ void show_gameover(SDL_Renderer* renderer, SDL_Texture *gameover, const int& gov
 }
 
 
-void draw_shadow(SDL_Renderer* renderer){
+void draw_shadow(SDL_Renderer* renderer, SDL_Rect &crop, SDL_Texture *image){
     int shadow[4];
     for(int b = 0; b < 4; b++){
         shadow[b] = block[b].y;
@@ -214,11 +217,21 @@ void draw_shadow(SDL_Renderer* renderer){
             block[i].y += b_h;
         }
     }
-    for(int i = 0; i < 4; i++){
-        block[i].y -= b_h;
-        SDL_SetRenderDrawColor(renderer, 255, 0, 255, 0); // purple
-        SDL_RenderDrawRect(renderer, &block[i]);
-        block[i].y = shadow[i];
+
+    if(mergeShadow){
+        for(int i = 0; i < 4; i++){
+            block[i].y -= b_h;
+            SDL_RenderCopy(renderer, image, &crop, &block[i]);
+        }
+        mergeShadow = false;
+    }else{
+        for(int i = 0; i < 4; i++){
+            block[i].y -= b_h;
+            SDL_SetRenderDrawColor(renderer, 255, 0, 255, 0); // purple
+            SDL_RenderDrawRect(renderer, &block[i]);
+            block[i].y = shadow[i];
+    }
+
     }
 
 
@@ -348,7 +361,7 @@ int compute_points(int level, int line_count)
     switch (line_count)
     {
     case 1:
-        return 1000 * (level + 1);
+        return 500 * (level + 1);
     case 2:
         return 100 * (level + 1);
     case 3:
@@ -579,6 +592,8 @@ int main(int argc, char *argv[]){
                                 case SDLK_q:
                                     END_GAME = true;
                                     break;
+                                case SDLK_SPACE:
+                                    mergeShadow = true;
                                 default:
                                     break;
                             }
@@ -657,9 +672,13 @@ int main(int argc, char *argv[]){
                         }
                     }
                 }
+
+
+
+
                 current_time = SDL_GetTicks();
                 //store what we already played
-                if(current_time > delay + last_time){
+                if(current_time > delay + last_time || mergeShadow){
 
                     SDL_RenderClear(renderer);
                     renderTexture(back_ground, renderer, 0, 0, W_WIDTH, W_HEIGHT);
@@ -738,9 +757,9 @@ int main(int argc, char *argv[]){
 
 
                 }
-
                 //draw the shadowbox
-                draw_shadow(renderer);
+                draw_shadow(renderer, crop, image);
+
 
 
                 if(GAME_OVER){
